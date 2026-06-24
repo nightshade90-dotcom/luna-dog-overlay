@@ -1,0 +1,27 @@
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  background: #18181b;
+  color: white;
+}
+
+.dog-box {
+  padding: 20px;
+}
+
+#dog {
+  width: 180px;
+  transition: transform 0.2s;
+}
+
+.happy {
+  transform: scale(1.1) rotate(3deg);
+}
+
+button {
+  padding: 12px 18px;
+  font-size: 16px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+}
