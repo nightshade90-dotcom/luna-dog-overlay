@@ -626,24 +626,6 @@ if (!devMode) {
   fetchButton.style.display = "none";
 }
 
-const streamerBotSocket = new WebSocket("ws://127.0.0.1:3000/");
-
-streamerBotSocket.addEventListener("open", () => {
-  console.log("Connected to Streamer.bot WebSocket");
-});
-
-streamerBotSocket.addEventListener("message", (event) => {
-  console.log("Streamer.bot message:", event.data);
-
-  if (event.data.includes("luna_treat")) {
-    giveLunaTreat();
-  }
-
-  if (event.data.includes("luna_fetch")) {
-    playLunaFetch();
-  }
-});
-
 
 loadGame();
 updateHud();
