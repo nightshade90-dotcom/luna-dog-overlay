@@ -627,7 +627,12 @@ if (!devMode) {
 }
 
 window.addEventListener("obs-browser-vendor-event", (event) => {
-  const eventName = event.detail.event_name;
+  console.log("OBS EVENT RECEIVED:", event.detail);
+
+  const eventName =
+    event.detail?.event_name ||
+    event.detail?.eventName ||
+    event.detail?.name;
 
   if (eventName === "luna_treat") {
     giveLunaTreat();
