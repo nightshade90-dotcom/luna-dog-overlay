@@ -626,12 +626,16 @@ if (!devMode) {
   fetchButton.style.display = "none";
 }
 
-window.addEventListener("luna_treat", () => {
-  giveLunaTreat();
-});
+window.addEventListener("obs-browser-vendor-event", (event) => {
+  const eventName = event.detail.event_name;
 
-window.addEventListener("luna_fetch", () => {
-  playLunaFetch();
+  if (eventName === "luna_treat") {
+    giveLunaTreat();
+  }
+
+  if (eventName === "luna_fetch") {
+    playLunaFetch();
+  }
 });
 
 loadGame();
