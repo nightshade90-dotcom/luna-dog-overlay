@@ -163,7 +163,7 @@ let treats = 0;
 let happiness = 50;
 let treatCooldown = false;
 
-const devMode = false;
+const devMode = true;
 
 
 
@@ -621,10 +621,10 @@ window.playLunaFetch = function() {
 
   speak("🎾 Twitch wants to play!");
 };
-// if (!devMode) {
-//   treatButton.style.display = "none";
-//   fetchButton.style.display = "none";
-// }
+if (!devMode) {
+  treatButton.style.display = "none";
+  fetchButton.style.display = "none";
+}
 
 window.addEventListener("obs-browser-vendor-event", (event) => {
   console.log("OBS EVENT RECEIVED:", event.detail);
