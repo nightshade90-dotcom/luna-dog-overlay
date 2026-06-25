@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Luna Overlay</title>
+  <meta charset="UTF-8">
+  <style>
+    body { margin: 0; overflow: hidden; background: transparent; font-family: Arial, sans-serif; }
+
+    #luna {
+      position: absolute;
+      bottom: 40px;
+      left: 50px;
+      width: 180px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #hud {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0,0,0,0.65);
+      color: white;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 18px;
+    }
+
+    #treatButton, #fetchButton {
+      margin-top: 8px;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
+      display: block;
+    }
+
+    #ball {
+      position: absolute;
+      bottom: 10px;
+      left: 600px;
+      font-size: 20px;
+      display: none;
+    }
+
+    .heart, .zzz {
+      position: absolute;
+      font-size: 28px;
+      animation: floatUp 1.5s ease-out forwards;
+      pointer-events: none;
+    }
+
+    .heart { color: pink; }
+    .zzz { color: #b388ff; font-weight: bold; }
+
+    #speechBubble {
+      position: absolute;
+      display: none;
+      background: white;
+      color: black;
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 2px solid #444;
+      font-size: 16px;
+      max-width: 180px;
+      z-index: 1000;
+}
+
+#achievementList {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #ffd700;
+}
+
+#statsPanel {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #87ceeb;
+  border-top: 1px solid rgba(255,255,255,0.2);
+  padding-top: 6px;
+}
+    
+
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-80px) scale(1.5); }
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="hud">
+  <div id="treatCounter">Treats: 0 🦴</div>
+  <div id="happyCounter">Happiness: 50% ❤️</div>
+  <div id="levelCounter">Level: 1 Puppy 🐕</div>
+  <div id="xpCounter">XP: 0 / 100 ⭐</div>
+  <div id="achievementCounter">Achievements: 0 🏆</div>
+  <div id="fetchCounter">Fetches: 0 🎾</div>
+  <div id="achievementList"></div>
+  <div id="statsPanel"></div>
+  <button id="treatButton">Give Treat 🦴</button>
+  <button id="fetchButton">Throw Ball 🎾</button>
+</div>
+
+<div id="speechBubble"></div>
+<img id="ball" src="sprites/items/ball.png" alt="Ball">
+
+<img id="luna" src="sprites/idle/idle_01.png" alt="Luna">
+
+<script>
+const luna = document.getElementById("luna");
+const treatCounter = document.getElementById("treatCounter");
+const happyCounter = document.getElementById("happyCounter");
+const levelCounter = document.getElementById("levelCounter");
+const xpCounter = document.getElementById("xpCounter");
+const achievementCounter = document.getElementById("achievementCounter");
+const fetchCounter = document.getElementById("fetchCounter");
+const achievementList = document.getElementById("achievementList");
+const statsPanel = document.getElementById("statsPanel");
+const treatButton = document.getElementById("treatButton");
+const fetchButton = document.getElementById("fetchButton");
+const speechBubble = document.getElementById("speechBubble");
+const ball = document.getElementById("ball");
+
+const idleFrames = [
+  "sprites/idle/idle_01.png",
+  "sprites/idle/idle_02.png",
+  "sprites/idle/idle_03.png",
+  "sprites/idle/idle_04.png"
+];
+
+const happyFrames = [
+  "sprites/happy/happy_01.png",
+  "sprites/happy/happy_02.png",
+  "sprites/happy/happy_03.png",
+  "sprites/happy/happy_04.png"
+];
+
+const walkFrames = [
+  "sprites/walk/walk_01.png",
+  "sprites/walk/walk_02.png",
+  "sprites/walk/walk_03.png",
+  "sprites/walk/walk_04.png",
+  "sprites/walk/walk_05.png",
+  "sprites/walk/walk_06.png"
+];
+
+const sleepFrames = [
+  "sprites/sleep/sleep_01.png",
+  "sprites/sleep/sleep_02.png",
+  "sprites/sleep/sleep_03.png",
+  "sprites/sleep/sleep_04.png"
+];
+
+let frame = 0;
+let position = 50;
+let direction = 1;
+let state = "idle";
+
+let treats = 0;
+let happiness = 50;
+let treatCooldown = false;
+
+const devMode = false;
+
+
+
+let level = 1;
+let xp = 0;
+let xpNeeded = 100;
+let totalXP = 0;
+let pets = 0;
+let achievementsUnlocked = 0;
+
+let fetching = false;
+let fetchCooldown = false;
+let fetchPhase = "none";
+let fetchTarget = 600;
+let fetchHome = 50;
+
+let achievements = {
+  firstPet: false,
+  tenPets: false,
+  firstTreat: false,
+  tenTreats: false,
+  levelFive: false,
+  firstFetch: false,
+  tenFetches: false
+};
+
+let fetches = 0;
+
+function getLevelName() {
+  if (level >= 10) return "Stream Legend";
+  if (level >= 7) return "Fetch Champion";
+  if (level >= 4) return "Good Girl";
+  return "Puppy";
+}
+
+function updateHud() {
+  treatCounter.textContent = "Treats: " + treats + " 🦴";
+  happyCounter.textContent = "Happiness: " + happiness + "% ❤️";
+  levelCounter.textContent = "Level: " + level + " " + getLevelName() + " 🐕";
+  xpCounter.textContent = "XP: " + xp + " / " + xpNeeded + " ⭐";
+  achievementCounter.textContent = "Achievements: " + achievementsUnlocked + " 🏆";
+  fetchCounter.textContent = "Fetches: " + fetches + " 🎾";
+
+let unlocked = [];
+
+if (achievements.firstPet) unlocked.push("🐾 First Pet");
+if (achievements.tenPets) unlocked.push("❤️ 10 Pets");
+if (achievements.firstTreat) unlocked.push("🦴 First Treat");
+if (achievements.tenTreats) unlocked.push("🦴 10 Treats");
+if (achievements.firstFetch) unlocked.push("🎾 First Fetch");
+if (achievements.tenFetches) unlocked.push("🎾 10 Fetches");
+if (achievements.levelFive) unlocked.push("⭐ Level 5");
+
+achievementList.innerHTML = unlocked.join("<br>");
+
+statsPanel.innerHTML = `
+🐾 Pets: ${pets}<br>
+🦴 Treats: ${treats}<br>
+🎾 Fetches: ${fetches}<br>
+⭐ Lifetime XP: ${totalXP}<br>
+`;
+}
+
+function saveGame() {
+  const saveData = {
+    treats,
+    happiness,
+    level,
+    xp,
+    xpNeeded,
+    pets,
+    fetches,
+    achievementsUnlocked,
+    achievements,
+    totalXP
+  };
+
+  localStorage.setItem("lunaSaveData", JSON.stringify(saveData));
+}
+
+function loadGame() {
+  const savedData = localStorage.getItem("lunaSaveData");
+
+  if (!savedData) return;
+
+  const data = JSON.parse(savedData);
+
+  treats = data.treats ?? treats;
+  happiness = data.happiness ?? happiness;
+  level = data.level ?? level;
+  xp = data.xp ?? xp;
+  xpNeeded = data.xpNeeded ?? xpNeeded;
+  pets = data.pets ?? pets;
+  fetches = data.fetches ?? fetches;
+  achievementsUnlocked = data.achievementsUnlocked ?? achievementsUnlocked;
+  achievements = data.achievements ?? achievements;
+  totalXP = data.totalXP ?? totalXP;
+}
+
+function unlockAchievement(key, message) {
+  if (achievements[key]) return;
+
+  achievements[key] = true;
+  achievementsUnlocked++;
+
+ updateHud();
+saveGame();
+spawnFloating("🏆", "heart");
+  speak("🏆 " + message);
+}
+
+function addXP(amount) {
+totalXP += amount;
+  xp += amount;
+
+  if (xp >= xpNeeded) {
+    xp = xp - xpNeeded;
+    level++;
+    xpNeeded = Math.floor(xpNeeded * 1.5);
+
+    spawnFloating("LEVEL UP! ⭐", "heart");
+    speak("⭐ I learned a new trick!");
+    playHappy();
+
+    if (level >= 5) {
+      unlockAchievement("levelFive", "Level 5 Good Girl!");
+    }
+  }
+
+  updateHud();
+saveGame();
+}
+
+function showFrame() {
+  if (state === "idle") luna.src = idleFrames[frame % idleFrames.length];
+  if (state === "happy") luna.src = happyFrames[frame % happyFrames.length];
+  if (state === "sleep") luna.src = sleepFrames[frame % sleepFrames.length];
+
+  if (state === "walk" || state === "fetch") {
+    luna.src = walkFrames[frame % walkFrames.length];
+
+    if (state === "fetch") {
+      handleFetchMovement();
+    } else {
+      position += direction * 15;
+      luna.style.left = position + "px";
+
+      if (position > window.innerWidth - 220) {
+        direction = -1;
+        luna.style.transform = "scaleX(-1)";
+      }
+
+      if (position < 20) {
+        direction = 1;
+        luna.style.transform = "scaleX(1)";
+      }
+    }
+  }
+
+  frame++;
+}
+
+function handleFetchMovement() {
+  let target = fetchPhase === "toBall" ? fetchTarget : fetchHome;
+  let distance = target - position;
+
+  if (Math.abs(distance) > 20) {
+    direction = distance > 0 ? 1 : -1;
+    position += direction * 18;
+    luna.style.left = position + "px";
+    luna.style.transform = direction === 1 ? "scaleX(1)" : "scaleX(-1)";
+    return;
+  }
+
+  if (fetchPhase === "toBall") {
+  ball.style.display = "none";
+  fetchPhase = "returning";
+  speak("🐕 Got it!");
+  return;
+}
+  
+
+  if (fetchPhase === "returning") {
+    ball.style.display = "none";
+    fetching = false;
+    fetchPhase = "none";
+    state = "happy";
+    frame = 0;
+
+    fetches++;
+    happiness = Math.min(100, happiness + 8);
+    addXP(10);
+    updateHud();
+
+    if (fetches === 1) {
+      unlockAchievement("firstFetch", "First Fetch!");
+    }
+
+    if (fetches === 10) {
+      unlockAchievement("tenFetches", "10 Fetches!");
+    }
+
+    spawnFloating("🎾", "heart");
+    speak("🎾 I brought it back!");
+
+    setTimeout(() => {
+      state = "idle";
+      frame = 0;
+    }, 2000);
+  }
+}
+
+function spawnFloating(text, className) {
+  const item = document.createElement("div");
+  item.className = className;
+  item.textContent = text;
+
+  const lunaRect = luna.getBoundingClientRect();
+  item.style.left = lunaRect.left + 70 + "px";
+  item.style.top = lunaRect.top - 10 + "px";
+
+  document.body.appendChild(item);
+  setTimeout(() => item.remove(), 1500);
+}
+
+function speak(message) {
+  const lunaRect = luna.getBoundingClientRect();
+
+  speechBubble.textContent = message;
+  speechBubble.style.left = (lunaRect.left + 40) + "px";
+  speechBubble.style.top = (lunaRect.top - 60) + "px";
+  speechBubble.style.display = "block";
+
+  setTimeout(() => {
+    speechBubble.style.display = "none";
+  }, 3000);
+}
+
+function playHappy() {
+  state = "happy";
+  frame = 0;
+
+  setTimeout(() => {
+    if (!fetching) {
+      state = "idle";
+      frame = 0;
+    }
+  }, 2000);
+}
+
+setInterval(showFrame, 200);
+
+setInterval(() => {
+  if (state === "happy" || state === "fetch") return;
+
+  frame = 0;
+
+  if (state === "idle") {
+    const roll = Math.random();
+
+    if (happiness >= 80) {
+      state = roll < 0.85 ? "walk" : "sleep";
+    } else if (happiness >= 40) {
+      state = roll < 0.65 ? "walk" : "sleep";
+    } else {
+      state = roll < 0.25 ? "walk" : "sleep";
+    }
+  } else {
+    state = "idle";
+  }
+}, 6000);
+
+setInterval(() => {
+  if (state === "sleep") {
+    spawnFloating("Zzz", "zzz");
+  }
+}, 1800);
+
+setInterval(() => {
+  happiness = Math.max(0, happiness - 1);
+  updateHud();
+}, 30000);
+
+setInterval(() => {
+  if (state === "happy" || state === "fetch") return;
+
+  let messages = [];
+
+  if (happiness >= 80) {
+    messages = [
+      "🎾 Wanna play?",
+      "💜 I'm feeling great!",
+      "🐕 Best stream ever!",
+      "✨ I love it here!"
+    ];
+  } else if (happiness >= 40) {
+    messages = [
+      "🐾 Just exploring...",
+      "❤️ Hope you're having fun!",
+      "🐕 I'm watching the stream!",
+      "💜 This is cosy."
+    ];
+  } else {
+    messages = [
+      "🥺 Could I have a treat?",
+      "😴 I'm feeling sleepy...",
+      "🐾 I need some pets...",
+      "💜 Don't forget Luna!"
+    ];
+  }
+
+  speak(messages[Math.floor(Math.random() * messages.length)]);
+}, 45000);
+
+// Pet Luna: free
+luna.addEventListener("click", () => {
+  if (state === "fetch") return;
+
+  pets++;
+  happiness = Math.min(100, happiness + 2);
+
+  if (pets === 1) {
+    unlockAchievement("firstPet", "First Pet!");
+  }
+
+  if (pets === 10) {
+    unlockAchievement("tenPets", "10 Pets!");
+  }
+
+  addXP(1);
+  updateHud();
+
+  spawnFloating("❤️", "heart");
+
+  const petMessages = [
+    "❤️ Thank you!",
+    "🐕 Good scratches!",
+    "💜 I love pets!",
+    "🐾 Tail wag!"
+  ];
+
+  speak(petMessages[Math.floor(Math.random() * petMessages.length)]);
+  playHappy();
+});
+
+// Give Treat
+treatButton.addEventListener("click", () => {
+  if (treatCooldown || state === "fetch") return;
+
+  treatCooldown = true;
+  treatButton.textContent = "Cooldown...";
+
+  setTimeout(() => {
+    treatCooldown = false;
+    treatButton.textContent = "Give Treat 🦴";
+  }, 10000);
+
+  treats++;
+  happiness = Math.min(100, happiness + 10);
+
+  if (treats === 1) {
+    unlockAchievement("firstTreat", "First Treat!");
+  }
+
+  if (treats === 10) {
+    unlockAchievement("tenTreats", "10 Treats!");
+  }
+
+  addXP(5);
+  updateHud();
+
+  spawnFloating("🦴", "heart");
+
+  const treatMessages = [
+    "🦴 Yummy!",
+    "😋 Nom nom nom!",
+    "💜 Best treat ever!",
+    "🐕 More please!",
+    "🎉 Treat time!"
+  ];
+
+  speak(treatMessages[Math.floor(Math.random() * treatMessages.length)]);
+  playHappy();
+});
+
+// Fetch
+fetchButton.addEventListener("click", () => {
+  if (fetching || fetchCooldown) return;
+
+  fetchCooldown = true;
+  fetchButton.textContent = "Luna is tired...";
+
+  setTimeout(() => {
+    fetchCooldown = false;
+    fetchButton.textContent = "Throw Ball 🎾";
+  }, 15000);  if (fetching) return;
+
+  fetching = true;
+  fetchPhase = "toBall";
+  fetchHome = position;
+
+  fetchTarget = Math.floor(Math.random() * (window.innerWidth - 350)) + 180;
+
+  ball.textContent = "🎾";
+  ball.style.left = fetchTarget + "px";
+  ball.style.display = "block";
+
+  state = "fetch";
+  frame = 0;
+
+  speak("🎾 Fetch!");
+});
+
+// External commands for Streamer.bot
+
+window.giveLunaTreat = function() {
+
+  treats++;
+  happiness = Math.min(100, happiness + 10);
+
+  if (treats === 1) {
+    unlockAchievement("firstTreat", "First Treat!");
+  }
+
+  if (treats === 10) {
+    unlockAchievement("tenTreats", "10 Treats!");
+  }
+
+  addXP(5);
+
+  spawnFloating("🦴", "heart");
+  speak("🦴 Twitch gave me a treat!");
+  playHappy();
+
+  updateHud();
+  saveGame();
+};
+
+window.playLunaFetch = function() {
+
+  if (fetching) return;
+
+  fetching = true;
+  fetchPhase = "toBall";
+  fetchHome = position;
+
+  fetchTarget =
+    Math.floor(Math.random() * (window.innerWidth - 350)) + 180;
+
+  ball.style.left = fetchTarget + "px";
+  ball.style.display = "block";
+
+  state = "fetch";
+  frame = 0;
+
+  speak("🎾 Twitch wants to play!");
+};
+if (!devMode) {
+  treatButton.style.display = "none";
+  fetchButton.style.display = "none";
+}
+
+window.addEventListener("luna_treat", () => {
+  giveLunaTreat();
+});
+
+window.addEventListener("luna_fetch", () => {
+  playLunaFetch();
+});
+
+loadGame();
+updateHud();
+</script>
+</body>
+</html>
