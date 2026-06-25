@@ -626,10 +626,16 @@ if (!devMode) {
   fetchButton.style.display = "none";
 }
 
+window.addEventListener("luna_treat", () => {
+  giveLunaTreat();
+});
+
+window.addEventListener("luna_fetch", () => {
+  playLunaFetch();
+});
 
 loadGame();
 updateHud();
 </script>
-
 </body>
 </html>
